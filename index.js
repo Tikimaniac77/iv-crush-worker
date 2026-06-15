@@ -87,24 +87,43 @@ async function sendDiscordAlert(data) {
 // ==========================================
 async function scanMarkets() {
     console.log(`[${new Date().toISOString()}] Initiating market scan...`);
+    console.log(`[DEBUG] Tickers queued for scan:`, TICKERS);
     const now = new Date();
 
     for (const ticker of TICKERS) {
         try {
+            console.log(`Fetching quote for ${ticker}...`);
             const quote = await yahooFinance.quote(ticker);
             const S = quote.regularMarketPrice;
             
-            if (!quote.earningsTimestamp) continue;
+            if (!quote.earningsTimestamp) {
+                console.log(`[SKIP] ${ticker} - No upcoming earnings date found.`);
+                continue;
+            }
+            
             const earningsDate = new Date(quote.earningsTimestamp * 1000);
             const daysToEarnings = (earningsDate - now) / (1000 * 60 * 60 * 24);
-            if (daysToEarnings < 0 || daysToEarnings > 14) continue;
+            
+            if (daysToEarnings < 0 || daysToEarnings > 14) {
+                console.log(`[SKIP] ${ticker} - Earnings in ${daysToEarnings.toFixed(1)} days (Outside 0-14 day target window).`);
+                continue;
+            }
 
+            console.log(`[SUCCESS] ${ticker} is in the 14-day earnings window. Fetching options chain...`);
             const chain = await yahooFinance.options(ticker);
-            if (!chain || !chain.expirationDates.length) continue;
+            
+            if (!chain || !chain.expirationDates.length) {
+                console.log(`[SKIP] ${ticker} - No options chain data returned.`);
+                continue;
+            }
 
             const nearestChain = await yahooFinance.options(ticker, { date: chain.expirationDates[0] });
             const targetOption = nearestChain.options[0].calls.find(opt => opt.strike > S);
-            if (!targetOption) continue;
+            
+            if (!targetOption) {
+                console.log(`[SKIP] ${ticker} - No valid Out-Of-The-Money call option found.`);
+                continue;
+            }
             
             const expiryDate = new Date(targetOption.expiration); 
             const dte = Math.max(0.5, (expiryDate - now) / (1000 * 60 * 60 * 24)); 
@@ -115,19 +134,20 @@ async function scanMarkets() {
             const edge = trueIV - reportedIV;
             const requiredEdge = dte <= 7 ? 0.10 : 0.05;
 
+            console.log(`[CALC] ${ticker} | Broker IV: ${(reportedIV * 100).toFixed(1)}% | True Math IV: ${(trueIV * 100).toFixed(1)}% | Edge: ${(edge * 100).toFixed(1)}%`);
+
             if (edge >= requiredEdge) {
                 const data = { ticker, stockPrice: S, strike: targetOption.strike, expiry: expiryDate.toISOString().split('T')[0], dte, marketMidpoint, reportedIV, trueIV };
                 await sendDiscordAlert(data);
-                console.log(`Alert fired for ${ticker}`);
+                console.log(`[ALERT] Fired successfully for ${ticker}!!!`);
             }
         } catch (error) {
-            console.error(`Error scanning ${ticker}:`, error.message);
+            console.error(`[ERROR] Failed scanning ${ticker}:`, error.message);
         }
         await new Promise(resolve => setTimeout(resolve, 2000)); // Respect API limits between tickers
     }
     console.log(`Scan complete. Sleeping for ${POLLING_INTERVAL_MS / 60000} minutes.`);
 }
-
 // Initialize the continuous loop
 console.log("Starting IV Crush Background Worker...");
 scanMarkets(); 
