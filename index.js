@@ -101,7 +101,7 @@ async function scanMarkets() {
                 continue;
             }
             
-            const earningsDate = new Date(quote.earningsTimestamp * 1000);
+            const earningsDate = quote.earningsTimestamp;
             const daysToEarnings = (earningsDate - now) / (1000 * 60 * 60 * 24);
             
             if (daysToEarnings < 0 || daysToEarnings > 14) {
