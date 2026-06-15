@@ -103,14 +103,20 @@ async function scanMarkets() {
             
             const earningsDate = quote.earningsTimestamp;
             const daysToEarnings = (earningsDate - now) / (1000 * 60 * 60 * 24);
-            
-            if (daysToEarnings < 0 || daysToEarnings > 14) {
+
+            // 1. Filter out historical earnings dates immediately
+            if (daysToEarnings < 0) {
+                console.log(`[SKIP] ${ticker} - Historical data slot (${Math.abs(daysToEarnings).toFixed(1)} days ago). Awaiting next quarter scheduling.`);
+                continue;
+            }
+
+            // 2. Filter out future earnings that are too far away
+            if (daysToEarnings > 14) {
                 console.log(`[SKIP] ${ticker} - Earnings in ${daysToEarnings.toFixed(1)} days (Outside 0-14 day target window).`);
                 continue;
             }
 
             console.log(`[SUCCESS] ${ticker} is in the 14-day earnings window. Fetching options chain...`);
-            const chain = await yahooFinance.options(ticker);
             
             if (!chain || !chain.expirationDates.length) {
                 console.log(`[SKIP] ${ticker} - No options chain data returned.`);
