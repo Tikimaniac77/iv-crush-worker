@@ -3,7 +3,10 @@ import fetch from 'node-fetch';
 import 'dotenv/config';
 
 const yahooFinance = new yahooFinance2();
-
+// Force the scraper to act like a slow human
+yahooFinance.setGlobalConfig({
+    queue: { concurrency: 1, timeout: 5000 }
+});
 // ==========================================
 // CONFIGURATION
 // ==========================================
