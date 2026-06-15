@@ -3,10 +3,7 @@ import fetch from 'node-fetch';
 import 'dotenv/config';
 
 const yahooFinance = new yahooFinance2();
-// Force the scraper to act like a slow human
-yahooFinance.setGlobalConfig({
-    queue: { concurrency: 1, timeout: 5000 }
-});
+
 // ==========================================
 // CONFIGURATION
 // ==========================================
@@ -98,19 +95,19 @@ async function scanMarkets() {
             console.log(`Fetching quote for ${ticker}...`);
             const quote = await yahooFinance.quote(ticker);
             const S = quote.regularMarketPrice;
-            
-            if (!quote.earningsTimestamp) {
-                console.log(`[SKIP] ${ticker} - No upcoming earnings date found.`);
-                continue;
-            }
-            
-            const earningsDate = new Date(quote.earningsTimestamp * 1000);
-            const daysToEarnings = (earningsDate - now) / (1000 * 60 * 60 * 24);
-            
-            if (daysToEarnings < 0 || daysToEarnings > 14) {
-                console.log(`[SKIP] ${ticker} - Earnings in ${daysToEarnings.toFixed(1)} days (Outside 0-14 day target window).`);
-                continue;
-            }
+            //TEMPORARILY DISABLED FOR LIVE-FIRE TEST
+            //if (!quote.earningsTimestamp) {
+            //    console.log(`[SKIP] ${ticker} - No upcoming earnings date found.`);
+            //    continue;
+            //}
+            //
+            //const earningsDate = new Date(quote.earningsTimestamp * 1000);
+            //const daysToEarnings = (earningsDate - now) / (1000 * 60 * 60 * 24);
+            //
+            //if (daysToEarnings < 0 || daysToEarnings > 14) {
+            //    console.log(`[SKIP] ${ticker} - Earnings in ${daysToEarnings.toFixed(1)} days (Outside 0-14 day target window).`);
+            //    continue;
+            //}
 
             console.log(`[SUCCESS] ${ticker} is in the 14-day earnings window. Fetching options chain...`);
             const chain = await yahooFinance.options(ticker);
@@ -135,7 +132,7 @@ async function scanMarkets() {
             const trueIV = findImpliedVolatility(marketMidpoint, S, targetOption.strike, dte / 365, 0.052, 'call');
             
             const edge = trueIV - reportedIV;
-            const requiredEdge = dte <= 7 ? 0.10 : 0.05;
+            const requiredEdge = 0.00; // FORCED TEST THRESHOLD
 
             console.log(`[CALC] ${ticker} | Broker IV: ${(reportedIV * 100).toFixed(1)}% | True Math IV: ${(trueIV * 100).toFixed(1)}% | Edge: ${(edge * 100).toFixed(1)}%`);
 
